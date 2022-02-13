@@ -14,23 +14,22 @@ local Job = require "plenary.job"
 
 local M = {}
 
-M.maker_is_running = false
+M.running_makers = {}
 
 M.run = function(maker, on_done)
-    M.maker_is_running = true
-    Job
-        :new({
-            command = maker.command,
-            args = maker.args or {},
-            cwd = maker.cwd,
-            on_exit = function(job, return_val)
-                vim.defer_fn(function()
-                    M.maker_is_running = false
-                    on_done(job:result(), return_val)
-                end, 0)
-            end,
-        })
-        :start()
+    local job = Job:new {
+        command = maker.command,
+        args = maker.args or {},
+        cwd = maker.cwd,
+        on_exit = function(job, return_val)
+            vim.defer_fn(function()
+                M.running_makers[job.pid] = nil
+                on_done(job:result(), return_val)
+            end, 0)
+        end,
+    }
+    job:start()
+    M.running_makers[job.pid] = true
 end
 
 M.parse = function(lines, errorformat)
